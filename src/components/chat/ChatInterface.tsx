@@ -37,8 +37,9 @@ export default function Chat({
   const {
     messages,
     input,
-    handleInputChange,
-    handleSubmit,    status,
+    setInput,
+    handleSubmit,
+    status,
     setMessages,
     stop,
     append,
@@ -191,13 +192,7 @@ export default function Chat({
   }
 
   return (
-    <div
-      className={cn(
-        "relative flex h-full min-w-0 flex-1 flex-col",
-        messages.length === 0 ? "items-center justify-center" : "",
-      )}
-      data-testid="full-chat"
-    >
+    <div className="flex flex-col h-full w-full bg-white">
       <ChatMessages
         sections={sections}
         data={data}
@@ -209,10 +204,10 @@ export default function Chat({
         onUpdateMessage={handleUpdateAndReloadMessage}
         reload={handleReloadFrom}
       />
-        <ChatPanel
+      <ChatPanel
         input={input}
-        handleInputChange={handleInputChange}
-        handleSubmit={handleSubmit}
+        setInput={setInput}
+        handleSubmit={onSubmit}
         isLoading={isLoading}
         messages={messages}
         setMessages={setMessages}
