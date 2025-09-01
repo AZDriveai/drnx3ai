@@ -1,223 +1,169 @@
-"use client"
+'use client'
 
-import { useEffect, useMemo, useRef, useState } from "react"
-import { useChat } from "@ai-sdk/react"
-import type { ChatRequestOptions } from "ai"
-import type { UIMessage as Message } from "ai"
-import { toast } from "sonner"
+import { useState, useRef, useEffect } from 'react'
+import { Send, Bot, User, Loader } from 'lucide-react'
 
-import { CHAT_ID } from "@/lib/constants"
-import type { Model } from "@/lib/types/models"
-import { cn } from "@/lib/utils"
-
-import { ChatMessages } from "./chat-messages"
-import { ChatPanel } from "./chat-panel"
-
-// Define section structure
-interface ChatSection {
-  id: string // User message ID
-  userMessage: Message
-  assistantMessages: Message[]
+interface Message {
+  id: string
+  type: 'user' | 'bot'
+  content: string
+  timestamp: Date
 }
 
-export default function Chat({
-  id,
-  savedMessages = [],
-  query,
-  models,
-}: {
-  id: string
-  savedMessages?: Message[]
-  query?: string
-  models?: Model[]
-}) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const [isAtBottom, setIsAtBottom] = useState(true)
-
-  const {
-    messages,
-    input,
-    setInput,
-    handleSubmit,
-    status,
-    setMessages,
-    stop,
-    append,
-    data,
-    setData,
-    addToolResult,
-    reload,
-  } = useChat({
-    initialMessages: savedMessages,
-    id: CHAT_ID,
-    body: {
-      id,
-    },
-    onFinish: () => {
-      window.history.replaceState({}, "", `/search/${id}`)
-      window.dispatchEvent(new CustomEvent("chat-history-updated"))
-    },
-    onError: (error) => {
-      toast.error(`Error in chat: ${error.message}`)
-    },
-    sendExtraMessageFields: false, // Disable extra message fields,
-    experimental_throttle: 100,
-  })
-
-  const isLoading = status === "submitted" || status === "streaming"
-
-  // Convert messages array to sections array
-  const sections = useMemo<ChatSection[]>(() => {
-    const result: ChatSection[] = []
-    let currentSection: ChatSection | null = null
-
-    for (const message of messages) {
-      if (message.role === "user") {
-        // Start a new section when a user message is found
-        if (currentSection) {
-          result.push(currentSection)
-        }
-        currentSection = {
-          id: message.id,
-          userMessage: message,
-          assistantMessages: [],
-        }
-      } else if (currentSection && message.role === "assistant") {
-        // Add assistant message to the current section
-        currentSection.assistantMessages.push(message)
-      }
-      // Ignore other role types like 'system' for now
+export default function ChatInterface() {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      id: '1',
+      type: 'bot',
+      content: 'مرحباً بك في DRNX3AI! أنا مساعدك الذكي. كيف يمكنني مساعدتك اليوم؟',
+      timestamp: new Date()
     }
+  ])
+  const [inputValue, setInputValue] = useState('')
+  const [isLoading, setIsLoading] = useState(false)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-    // Add the last section if exists
-    if (currentSection) {
-      result.push(currentSection)
-    }
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
 
-    return result
+  useEffect(() => {
+    scrollToBottom()
   }, [messages])
 
-  // Detect if scroll container is at the bottom
-  useEffect(() => {
-    const container = scrollContainerRef.current
-    if (!container) return
+  const handleSendMessage = async () => {
+    if (!inputValue.trim()) return
 
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container
-      const threshold = 50 // threshold in pixels
-      if (scrollHeight - scrollTop - clientHeight < threshold) {
-        setIsAtBottom(true)
-      } else {
-        setIsAtBottom(false)
-      }
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      type: 'user',
+      content: inputValue,
+      timestamp: new Date()
     }
 
-    container.addEventListener("scroll", handleScroll, { passive: true })
-    handleScroll() // Set initial state
+    setMessages(prev => [...prev, userMessage])
+    setInputValue('')
+    setIsLoading(true)
 
-    return () => container.removeEventListener("scroll", handleScroll)
-  }, [])
-
-  // Scroll to the section when a new user message is sent
-  useEffect(() => {
-    if (sections.length > 0) {
-      const lastMessage = messages[messages.length - 1]
-      if (lastMessage && lastMessage.role === "user") {
-        // If the last message is from user, find the corresponding section
-        const sectionId = lastMessage.id
-        requestAnimationFrame(() => {
-          const sectionElement = document.getElementById(`section-${sectionId}`)
-          sectionElement?.scrollIntoView({ behavior: "smooth", block: "start" })
-        })
+    // محاكاة الاستجابة من الذكاء الاصطناعي
+    setTimeout(() => {
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        type: 'bot',
+        content: `شكراً لك على رسالتك: "${userMessage.content}". هذه استجابة تجريبية من DRNX3AI. في الإصدار الكامل، سيتم ربط هذا النظام بنماذج ذكاء اصطناعي حقيقية لتوفير إجابات أكثر تفصيلاً ودقة.`,
+        timestamp: new Date()
       }
+      setMessages(prev => [...prev, botMessage])
+      setIsLoading(false)
+    }, 2000)
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
     }
-  }, [sections, messages])
+  }
 
-  useEffect(() => {
-    setMessages(savedMessages)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id])
-
-  const onQuerySelect = (query: string) => {
-    append({
-      role: "user",
-      content: query,
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('ar', { 
+      hour: '2-digit', 
+      minute: '2-digit'
     })
   }
 
-  const handleUpdateAndReloadMessage = async (messageId: string, newContent: string) => {
-    setMessages((currentMessages) =>
-      currentMessages.map((msg) => (msg.id === messageId ? { ...msg, content: newContent } : msg)),
-    )
-
-    try {
-      const messageIndex = messages.findIndex((msg) => msg.id === messageId)
-      if (messageIndex === -1) return
-
-      const messagesUpToEdited = messages.slice(0, messageIndex + 1)
-
-      setMessages(messagesUpToEdited)
-
-      setData(undefined)
-
-      await reload({
-        body: {
-          chatId: id,
-          regenerate: true,
-        },
-      })
-    } catch (error) {
-      console.error("Failed to reload after message update:", error)
-      toast.error(`Failed to reload conversation: ${(error as Error).message}`)
-    }
-  }
-
-  const handleReloadFrom = async (messageId: string, options?: ChatRequestOptions) => {
-    const messageIndex = messages.findIndex((m) => m.id === messageId)
-    if (messageIndex !== -1) {
-      const userMessageIndex = messages.slice(0, messageIndex).findLastIndex((m) => m.role === "user")
-      if (userMessageIndex !== -1) {
-        const trimmedMessages = messages.slice(0, userMessageIndex + 1)
-        setMessages(trimmedMessages)
-        return await reload(options)
-      }
-    }
-    return await reload(options)
-  }
-
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setData(undefined)
-    handleSubmit(e)
-  }
-
   return (
-    <div className="flex flex-col h-full w-full bg-white">
-      <ChatMessages
-        sections={sections}
-        data={data}
-        onQuerySelect={onQuerySelect}
-        isLoading={isLoading}
-        chatId={id}
-        addToolResult={addToolResult}
-        scrollContainerRef={scrollContainerRef}
-        onUpdateMessage={handleUpdateAndReloadMessage}
-        reload={handleReloadFrom}
-      />
-      <ChatPanel
-        input={input}
-        setInput={setInput}
-        handleSubmit={onSubmit}
-        isLoading={isLoading}
-        messages={messages}
-        setMessages={setMessages}
-        stop={stop}
-        query={query}
-        append={append}
-        models={models}
-        showScrollToBottomButton={!isAtBottom}
-        scrollContainerRef={scrollContainerRef}
-      />
+    <div className="flex flex-col h-full">
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        {messages.map((message) => (
+          <div
+            key={message.id}
+            className={`flex items-start gap-3 ${
+              message.type === 'user' ? 'flex-row-reverse' : 'flex-row'
+            }`}
+          >
+            {/* Avatar */}
+            <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+              message.type === 'user' 
+                ? 'bg-gradient-to-br from-blue-500 to-purple-600' 
+                : 'bg-gradient-to-br from-green-500 to-blue-600'
+            }`}>
+              {message.type === 'user' ? (
+                <User className="h-4 w-4 text-white" />
+              ) : (
+                <Bot className="h-4 w-4 text-white" />
+              )}
+            </div>
+
+            {/* Message Content */}
+            <div className={`max-w-[70%] ${
+              message.type === 'user' ? 'text-right' : 'text-left'
+            }`}>
+              <div className={`p-4 rounded-2xl ${
+                message.type === 'user'
+                  ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white'
+                  : 'bg-white/10 backdrop-blur-sm text-white border border-white/20'
+              }`}>
+                <p className="whitespace-pre-wrap leading-relaxed">
+                  {message.content}
+                </p>
+              </div>
+              <p className="text-xs text-gray-400 mt-2 px-2">
+                {formatTime(message.timestamp)}
+              </p>
+            </div>
+          </div>
+        ))}
+
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div className="flex items-start gap-3">
+            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-blue-600 flex items-center justify-center">
+              <Bot className="h-4 w-4 text-white" />
+            </div>
+            <div className="bg-white/10 backdrop-blur-sm p-4 rounded-2xl border border-white/20">
+              <div className="flex items-center gap-2">
+                <Loader className="h-4 w-4 animate-spin text-blue-400" />
+                <span className="text-gray-300">جاري كتابة الرد...</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input Area */}
+      <div className="border-t border-white/10 p-4">
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <textarea
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder="اكتب رسالتك هنا..."
+              className="w-full p-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 resize-none focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/50"
+              rows={2}
+              disabled={isLoading}
+            />
+          </div>
+          <button
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim() || isLoading}
+            className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-xl flex items-center justify-center transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+          >
+            <Send className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Tips */}
+        <div className="mt-3 text-center">
+          <p className="text-xs text-gray-500">
+            اضغط Enter للإرسال • Shift + Enter للسطر الجديد
+          </p>
+        </div>
+      </div>
     </div>
   )
 }

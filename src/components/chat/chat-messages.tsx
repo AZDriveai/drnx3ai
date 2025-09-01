@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useRef } from "react"
-import type { Message } from "ai/react"
+import type { Message } from '@/types/chat';
 
 import { cn } from "@/lib/utils"
 
