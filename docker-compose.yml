@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  wolf-ai-genesis:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - TELEGRAM_TOKEN=${TELEGRAM_TOKEN}
+      - NEO4J_URL=${NEO4J_URL}
+      - FAISS_INDEX_PATH=${FAISS_INDEX_PATH}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    depends_on:
+      - neo4j
+      - redis
+    restart: unless-stopped
+
+  neo4j:
+    image: neo4j:5.15
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      - NEO4J_AUTH=neo4j/wolfai2024
+      - NEO4J_PLUGINS=["apoc"]
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
+  neo4j_logs:
+  redis_data:
